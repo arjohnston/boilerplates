@@ -3,7 +3,7 @@
 
 import React from 'react'
 import App from 'next/app'
-import '../static/css/style.css'
+import '../public/css/style.css'
 
 class MyApp extends App {
   // Only uncomment this method if you have blocking data requirements for

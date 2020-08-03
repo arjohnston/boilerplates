@@ -9,9 +9,10 @@ const bodyParser = require('body-parser')
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dir: '.', dev })
 const handle = app.getRequestHandler()
-const path = require('path')
 const address = require('address')
 const mailer = require('./mailer')
+const helmet = require('helmet')
+const expressSanitizer = require('express-sanitizer')
 
 require('es6-promise').polyfill()
 require('isomorphic-fetch')
@@ -30,14 +31,52 @@ app.prepare().then(() => {
   const server = express()
   server.use(compression())
   server.use(bodyParser.json())
+  server.use(expressSanitizer())
+  server.use(
+    helmet.frameguard({
+      action: 'allow-from',
+      domain: 'http://kschricker.emergencyuniversity.com'
+    })
+  )
 
-  server.get('/service-worker.js', (req, res) => {
-    const parsedUrl = new URL(req.url, 'https://example.com')
-    const { pathname } = parsedUrl
+  if (!dev) {
+    const sixtyDaysInSeconds = 5184000
+    server.use(
+      helmet.hsts({
+        maxAge: sixtyDaysInSeconds
+      })
+    )
 
-    const filePath = path.join(__dirname, '.next', pathname)
-    app.serveStatic(req, res, filePath)
-  })
+    server.use(
+      helmet.contentSecurityPolicy({
+        directives: {
+          scriptSrc: [
+            "'self'",
+            'www.google-analytics.com',
+            'www.google.com',
+            'www.gstatic.com',
+            'data:'
+          ]
+        }
+      })
+    )
+    server.use(
+      helmet.referrerPolicy({ policy: 'strict-origin-when-cross-origin' })
+    )
+
+    server.use(
+      helmet.featurePolicy({
+        features: {
+          fullscreen: ["'self'"],
+          geolocation: ["'self'"]
+        }
+      })
+    )
+
+    server.use(helmet.noSniff())
+
+    server.disable('x-powered-by')
+  }
 
   // Method to cache pages on load
   // Populate all pages to be stored in cache
